@@ -88,11 +88,11 @@ export class WormView extends Container {
         const ctxX = (dx: number, dy: number) => x + dx * Math.cos(angle) - dy * Math.sin(angle);
         const ctxY = (dx: number, dy: number) => y + dx * Math.sin(angle) + dy * Math.cos(angle);
 
-        // Arrow Triangle
+        // Arrow Triangle（等腰三角形：尖头更长，底边更窄，方向更明显）
         g.beginPath();
-        g.moveTo(ctxX(0, -headSize), ctxY(0, -headSize)); // Tip
-        g.lineTo(ctxX(-headSize * 0.6, 0), ctxY(-headSize * 0.6, 0));
-        g.lineTo(ctxX(headSize * 0.6, 0), ctxY(headSize * 0.6, 0));
+        g.moveTo(ctxX(0, -headSize * 1.5), ctxY(0, -headSize * 1.5)); // 尖端（更远）
+        g.lineTo(ctxX(-headSize * 0.4, 0), ctxY(-headSize * 0.4, 0)); // 左底（更窄）
+        g.lineTo(ctxX(headSize * 0.4, 0), ctxY(headSize * 0.4, 0));   // 右底（更窄）
         g.closePath();
         g.fill({ color: this.worm.color });
         g.stroke({ width: 2, color: 0x000000, alpha: 0.5 });

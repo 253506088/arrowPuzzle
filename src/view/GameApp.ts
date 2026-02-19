@@ -39,8 +39,8 @@ export class GameApp {
             const availW = this.app.screen.width - padding * 2;
             const availH = this.app.screen.height - uiBarH - padding * 2;
 
-            // 缩放以适应屏幕，不放大（最大1倍）
-            const scale = Math.min(availW / logicW, availH / logicH, 1);
+            // 缩放以完整适应屏幕
+            const scale = Math.min(availW / logicW, availH / logicH);
             this.gameContainer.scale.set(scale);
 
             // 居中（考虑缩放后的实际尺寸）

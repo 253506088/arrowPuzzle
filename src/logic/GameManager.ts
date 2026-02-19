@@ -24,7 +24,7 @@ export class GameManager {
     // 策略："先铺形状，再拓扑分配方向"
     // 分配顺序 = 通关顺序的逆序 → 数学上保证可解
     generateLevel(targetDensity: number = 0.95): boolean {
-        const maxRetries = 5;
+        const maxRetries = 100;
 
         for (let retry = 0; retry < maxRetries; retry++) {
             this.reset();
