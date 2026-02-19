@@ -34,7 +34,7 @@ export class GameApp {
             const logicW = this.gameManager.gridWidth * CELL_SIZE;
             const logicH = this.gameManager.gridHeight * CELL_SIZE;
             const uiBarH = 40;
-            const padding = 8; // 边距，防止贴边
+            const padding = CELL_SIZE; // 留出箭头溢出空间
 
             const availW = this.app.screen.width - padding * 2;
             const availH = this.app.screen.height - uiBarH - padding * 2;
