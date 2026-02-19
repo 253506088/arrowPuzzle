@@ -9,6 +9,7 @@ export class GameManager {
     gridWidth: number;
     gridHeight: number;
     logicGrid: LogicalGrid;
+    private initialLevelJson: string = ''; // 初始关卡快照（用于导出）
 
     constructor(width: number, height: number) {
         this.gridWidth = width;
@@ -23,7 +24,7 @@ export class GameManager {
 
     // 策略："先铺形状，再拓扑分配方向"
     // 分配顺序 = 通关顺序的逆序 → 数学上保证可解
-    generateLevel(targetDensity: number = 0.95): boolean {
+    generateLevel(targetDensity: number = 0.95, minWormCount: number = 0): boolean {
         const maxRetries = 100;
 
         for (let retry = 0; retry < maxRetries; retry++) {
@@ -87,7 +88,12 @@ export class GameManager {
 
             // === Phase 2: 拓扑分配方向（剥洋葱）===
             if (this.assignDirectionsTopologically()) {
+                if (minWormCount > 0 && this.logicGrid.worms.size < minWormCount) {
+                    console.log(`[生成] 虫子数 ${this.logicGrid.worms.size} < 最少要求 ${minWormCount}，重试...`);
+                    continue;
+                }
                 console.log(`[生成] 成功！虫子: ${this.logicGrid.worms.size}`);
+                this.initialLevelJson = this.serializeLevel();
                 return true;
             }
 
@@ -232,5 +238,50 @@ export class GameManager {
             return true;
         }
         return false;
+    }
+
+    // 导出初始关卡数据（开局时的完整状态）
+    exportLevel(): string {
+        return this.initialLevelJson;
+    }
+
+    // 序列化当前关卡状态
+    private serializeLevel(): string {
+        const worms: { id: number; cells: Point[]; dir: Direction; color: number }[] = [];
+        for (const w of this.logicGrid.worms.values()) {
+            worms.push({ id: w.id, cells: w.cells, dir: w.direction, color: w.color });
+        }
+        return JSON.stringify({
+            v: 1,
+            w: this.gridWidth,
+            h: this.gridHeight,
+            worms
+        });
+    }
+
+    // 从 JSON 字符串导入关卡
+    importLevel(json: string): boolean {
+        try {
+            const data = JSON.parse(json);
+            if (!data.worms || !data.w || !data.h) return false;
+
+            this.gridWidth = data.w;
+            this.gridHeight = data.h;
+            this.reset();
+
+            for (const wd of data.worms) {
+                const worm = new Worm(wd.id, wd.color);
+                worm.cells = wd.cells;
+                worm.direction = wd.dir;
+                this.logicGrid.addWorm(worm);
+            }
+
+            console.log(`[导入] 成功！网格: ${data.w}x${data.h}, 虫子: ${this.logicGrid.worms.size}`);
+            this.initialLevelJson = json; // 保存导入的原始数据作为快照
+            return true;
+        } catch (e) {
+            console.error('[导入] JSON 解析失败:', e);
+            return false;
+        }
     }
 }

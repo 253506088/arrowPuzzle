@@ -53,6 +53,44 @@
       background: #666;
     }
 
+    /* 开始界面配置区 */
+    .config-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      color: #ccc;
+      font-size: 16px;
+    }
+
+    .config-row input[type="number"] {
+      width: 70px;
+      padding: 6px 10px;
+      background: #222;
+      color: white;
+      border: 1px solid #555;
+      border-radius: 6px;
+      font-size: 16px;
+      text-align: center;
+    }
+
+    .overlay-btn {
+      pointer-events: auto;
+      background: #333;
+      color: #ccc;
+      border: 1px solid #555;
+      padding: 10px 24px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 10px;
+    }
+
+    .overlay-btn:hover {
+      background: #555;
+    }
+
     /* 移动端适配 */
     @media (max-width: 600px) {
       #ui {
@@ -73,6 +111,16 @@
       #startBtn {
         padding: 12px 32px;
         font-size: 18px;
+      }
+
+      .config-row {
+        font-size: 14px;
+        gap: 8px;
+      }
+
+      .overlay-btn {
+        font-size: 14px;
+        padding: 8px 16px;
       }
     }
 
@@ -136,7 +184,12 @@
   <!-- 开始界面 -->
   <div id="startOverlay">
     <h1>🐛 Arrow Puzzle</h1>
+    <div class="config-row">
+      <label for="minWorms">最少虫子数：</label>
+      <input type="number" id="minWorms" value="100" min="10" max="500" step="10">
+    </div>
     <button id="startBtn">▶ 开始游戏</button>
+    <button class="overlay-btn" id="importBtn">📥 导入存档</button>
     <div id="statusText"></div>
   </div>
 
@@ -145,6 +198,7 @@
     <div id="timerLabel">Time: 00:00</div>
     <div>
       <button class="ui-btn" id="pauseBtn">⏸ 暂停</button>
+      <button class="ui-btn" id="exportBtn">📤 导出</button>
       <button class="ui-btn" id="debugBtn">Auto Step</button>
     </div>
     <div id="countLabel">Worms: 0</div>

@@ -65,6 +65,16 @@ export class GameApp {
             this.togglePause();
         });
 
+        // 导出按钮
+        document.getElementById('exportBtn')?.addEventListener('click', () => {
+            this.exportLevel();
+        });
+
+        // 导入按钮
+        document.getElementById('importBtn')?.addEventListener('click', () => {
+            this.importLevel();
+        });
+
         // 不自动开始，等用户点击
     }
 
@@ -72,20 +82,19 @@ export class GameApp {
     private onStartClick() {
         const btn = document.getElementById('startBtn') as HTMLButtonElement;
         const status = document.getElementById('statusText')!;
+        const minWorms = parseInt((document.getElementById('minWorms') as HTMLInputElement).value) || 0;
 
         btn.disabled = true;
         btn.innerText = '⏳ 生成中...';
-        status.innerText = '正在生成关卡，请稍候...';
+        status.innerText = `正在生成关卡（最少 ${minWorms} 只虫子），请稍候...`;
 
         // 用 setTimeout 让 UI 先更新，再开始计算
         setTimeout(() => {
-            const success = this.startLevel();
+            const success = this.startLevel(minWorms);
 
             if (success) {
-                // 隐藏开始界面
                 document.getElementById('startOverlay')!.style.display = 'none';
             } else {
-                // 生成失败，恢复按钮
                 btn.disabled = false;
                 btn.innerText = '▶ 重新生成';
                 status.innerText = '⚠️ 生成失败，请点击重试';
@@ -141,29 +150,75 @@ export class GameApp {
     }
 
     // 返回是否成功
-    startLevel(): boolean {
-        // 清理
+    startLevel(minWormCount: number = 0): boolean {
         this.gameContainer.removeChildren();
         this.wormViews.clear();
 
-        // 生成关卡
-        const success = this.gameManager.generateLevel(0.95);
+        const success = this.gameManager.generateLevel(0.95, minWormCount);
         if (!success) return false;
 
-        // 创建视图
+        this.buildViews();
+        this.startTimer();
+        this.updateUI();
+        return true;
+    }
+
+    // 根据当前 logicGrid 里的虫子创建视图
+    private buildViews() {
+        this.gameContainer.removeChildren();
+        this.wormViews.clear();
         for (const worm of this.gameManager.logicGrid.worms.values()) {
             const view = new WormView(worm, CELL_SIZE);
-            view.x = 0;
-            view.y = 0;
             view.on('pointerdown', () => this.handleWormClick(view));
             this.gameContainer.addChild(view);
             this.wormViews.set(worm.id, view);
         }
+    }
 
-        // 重置并启动计时器
-        this.startTimer();
-        this.updateUI();
-        return true;
+    // === 导出/导入 ===
+
+    private exportLevel() {
+        const json = this.gameManager.exportLevel();
+        // 复制到剪贴板
+        navigator.clipboard.writeText(json).then(() => {
+            console.log('[导出] 已复制到剪贴板');
+        }).catch(() => {
+            console.log('[导出] 剪贴板失败，尝试文件下载');
+        });
+        // 同时下载文件
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `arrow-puzzle-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    private importLevel() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = () => {
+            const file = input.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const json = reader.result as string;
+                if (this.gameManager.importLevel(json)) {
+                    this.buildViews();
+                    this.startTimer();
+                    this.updateUI();
+                    document.getElementById('startOverlay')!.style.display = 'none';
+                    // 触发 resize 以适配可能不同的网格尺寸
+                    window.dispatchEvent(new Event('resize'));
+                } else {
+                    document.getElementById('statusText')!.innerText = '⚠️ 导入失败，文件格式不正确';
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
     }
 
     handleWormClick(view: WormView) {
