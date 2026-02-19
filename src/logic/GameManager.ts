@@ -204,18 +204,9 @@ export class GameManager {
         return false;
     }
 
-    // Check if `subject` is blocked by `obstacle` (only check subject's head vs obstacle body)
-    private checkIfBlocked(subject: Worm, obstacle: Worm): boolean {
-        // Subject is in Grid. Obstacle is NOT in Grid (it's the new candidate).
-        // So we can't use `getRaycastBlockers` on Grid for this interaction if we depend on Grid state.
-        // We must perform a manual raycast from Subject Head to see if it hits Obstacle Cells.
-
-        return this.raycastHitsCells(subject.head, subject.direction, obstacle.cells);
-    }
-
-    private raycastHitsCells(start: Point, dir: Direction, cells: Point[]): boolean {
-        let cx = start.x;
-        let cy = start.y;
+    // 射线检测：从 (startX,startY) 沿 dir 方向，返回挡住去路的虫子ID列表
+    getRaycastBlockers(startX: number, startY: number, dir: Direction): number[] {
+        let cx = startX, cy = startY;
         while (true) {
             switch (dir) {
                 case Direction.UP: cy--; break;
@@ -223,89 +214,11 @@ export class GameManager {
                 case Direction.LEFT: cx--; break;
                 case Direction.RIGHT: cx++; break;
             }
-            if (!this.logicGrid.isValid(cx, cy)) return false;
-
-            // Check if hits any cell of target
-            if (cells.some(c => c.x === cx && c.y === cy)) return true;
-
-            // OPTIMIZATION: If we hit ANY OTHER existing worm, we stop?
-            // Yes, visual raycast stops at first obstacle.
-            // If we hit a wall or another worm ID before hitting `cells`, then we are NOT blocked by `cells`.
+            if (!this.logicGrid.isValid(cx, cy)) break;
             const id = this.logicGrid.getWormIdAt(cx, cy);
-            if (id !== -1) return false; // Hit something else first
-        }
-    }
-
-    // Who blocks THIS worm? (subject is the New Candidate)
-    private checkWhoBlocks(subject: Worm): number {
-        // Subject is New. Not in Grid.
-        // We verify its raycast against the Grid (which contains all Existing worms).
-        // This works fine with standard `getRaycastBlockers`.
-        const blockers = this.getRaycastBlockers(subject.head.x, subject.head.y, subject.direction);
-        if (blockers.length > 0) return blockers[0];
-        return -1;
-    }
-
-    // Raycast: Return IDs of worms blocking the path from (x,y) in dir
-    getRaycastBlockers(startX: number, startY: number, dir: Direction): number[] {
-        let cx = startX, cy = startY;
-        // Move one step first (blocker is definitely not self head, but could be self body?)
-        // Rules say: Move until hit something.
-
-        while (true) {
-            switch (dir) {
-                case Direction.UP: cy--; break; // Visual UP is Y- (in 0-indexed grid, usually 0 is top. Let's stick to Grid coords)
-                // Wait, in Grid.ts: logicGrid uses 0..Height.
-                // Let's define Direction.UP as Y-1 (Towards 0) if we render 0 at top.
-                // Or Y+1 if we render 0 at bottom.
-                // Let's assume Pixel Coordinate system: Y=0 is TOP.
-                // So UP = Y-1.
-                case Direction.DOWN: cy++; break;
-                case Direction.LEFT: cx--; break;
-                case Direction.RIGHT: cx++; break;
-            }
-
-            if (!this.logicGrid.isValid(cx, cy)) break; // Out of bounds -> Free
-
-            const id = this.logicGrid.getWormIdAt(cx, cy);
-            if (id !== -1) return [id]; // Hit something!
+            if (id !== -1) return [id];
         }
         return [];
-    }
-
-    // BFS/DFS Cycle Check
-    private detectCycleWithNewNode(
-        currentGraph: Map<number, Set<number>>,
-        incomingNodes: Set<number>, // Nodes that will point TO newNode (depend on newNode)
-        outgoingNodes: Set<number>  // Nodes that newNode will point TO (depends on)
-    ): boolean {
-        // A cycle is formed if there is a path from any 'outgoingNode' back to any 'incomingNode'.
-        // Because: incoming -> newNode -> outgoing ...->... incoming
-
-        if (incomingNodes.size === 0 || outgoingNodes.size === 0) return false;
-
-        // BFS from all Outgoing Nodes
-        // reachable contains all nodes reachable from outgoingNodes
-        const reachable = new Set<number>();
-        const queue = Array.from(outgoingNodes);
-
-        queue.forEach(n => reachable.add(n));
-
-        while (queue.length > 0) {
-            const u = queue.shift()!;
-            if (incomingNodes.has(u)) return true; // Found path back to incoming! Cycle!
-
-            if (currentGraph.has(u)) {
-                for (const v of currentGraph.get(u)!) {
-                    if (!reachable.has(v)) {
-                        reachable.add(v);
-                        queue.push(v);
-                    }
-                }
-            }
-        }
-
-        return false;
     }
 
     tryRemoveWorm(wormId: number): boolean {
