@@ -71,34 +71,26 @@ npm run build
 
 ## 🌐 部署到 GitHub Pages
 
-### 方式一：自动部署（推荐）
-
-项目已配置 GitHub Actions，推送到 `main` 分支后自动构建部署。
+项目使用 **GitHub Actions** 自动构建部署，推送到 `master` 分支后自动触发。
 
 **首次配置步骤：**
 
 1. 在 GitHub 上创建仓库（假设仓库名为 `geimu`）
 2. 进入仓库 **Settings → Pages**
-3. Source 选择 **GitHub Actions**
-4. 推送代码到 `main` 分支：
+3. **Build and deployment** 的 Source 选择 **GitHub Actions**
+4. 推送代码到 `master` 分支：
 
 ```bash
 git remote add origin https://github.com/你的用户名/geimu.git
-git push -u origin main
+git push -u origin master
 ```
 
-5. 等待 Actions 执行完毕，访问 `https://你的用户名.github.io/geimu/`
+5. 进入 **Actions** 页面查看构建进度
+6. 构建完成后访问 `https://你的用户名.github.io/geimu/`
 
 > [!IMPORTANT]
 > `vite.config.ts` 中的 base 路径会自动切换：本地开发用 `/`，GitHub Actions 构建时用 `/geimu/`。
-> 如果你的仓库名不是 `geimu`，需要修改 `vite.config.ts` 中的 `'/geimu/'` 为你的仓库名。
-
-### 方式二：手动部署
-
-```bash
-npm run build
-# 将 dist/ 目录内容推送到 gh-pages 分支
-```
+> 如果你的仓库名不是 `geimu`，需要修改 `vite.config.ts` 中的 `'/geimu/'` 为 `'/你的仓库名/'`。
 
 ## 📄 License
 
