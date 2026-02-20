@@ -23,48 +23,34 @@ export class WormView extends Container {
     }
 
     draw() {
-        const g = this.graphics;
-        g.clear();
-
         const cs = this.cellSize;
-        const thickness = cs * 0.6; // Fat worm
-
-        // Convert grid coords to local coords
-        // We will position the Container at (0,0) of the GameContainer and draw in absolute-like coords?
-        // OR: Position Container at Head? No, multiple cells.
-        // Best: Container is at (0,0). We draw shapes at correct offsets.
-        // BUT: If the worm spans (0,0) and (1,0), we need to draw between them.
-
-        // Let's assume the Parent Container handles the Grid centering. 
-        // We just draw relative to Grid (0,0).
-
-        // Draw Body Path
         const points = this.worm.cells.map(p => ({
             x: p.x * cs,
             y: p.y * cs
         }));
+        this.drawWithPoints(points);
+    }
 
-        // Draw tube
+    /** 根据任意坐标点数组绘制虫子（动画和静态共用） */
+    private drawWithPoints(points: { x: number; y: number }[]) {
+        const g = this.graphics;
+        g.clear();
+
+        const cs = this.cellSize;
+        const thickness = cs * 0.6;
+
         g.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) {
             g.lineTo(points[i].x, points[i].y);
         }
 
-        // Style: Neon Tube
         g.stroke({ width: thickness, color: this.worm.color, cap: 'round', join: 'round' });
-
-        // Highlight (inner core)
         g.stroke({ width: thickness * 0.4, color: 0xFFFFFF, alpha: 0.4, cap: 'round', join: 'round' });
 
-        // Draw Arrow Head at Head (points[0]) using Direction
-        const headX = points[0].x;
-        const headY = points[0].y;
-
-        this.drawHead(g, headX, headY, this.worm.direction, thickness);
+        this.drawHead(g, points[0].x, points[0].y, this.worm.direction, thickness);
     }
 
     drawHead(g: Graphics, x: number, y: number, dir: Direction, size: number) {
-        // Assume Up is Y-1 (Screen Up)
         let angle = 0;
         switch (dir) {
             case Direction.UP: angle = 0; break;
@@ -75,24 +61,14 @@ export class WormView extends Container {
 
         const headSize = size * 1.2;
 
-        // Draw separate head shape
-        // Tip at (0, -offset) relative to center x,y rotated
-
-        // Transform context manually? Or just coord math.
-        // Simple coord math:
-        // Tip offset: (0, -cs/2) logic wise?
-        // Actually, head should stick OUT of the cell a bit? 
-        // Or just replace the start of the tube.
-
-        // Check local rotation
         const ctxX = (dx: number, dy: number) => x + dx * Math.cos(angle) - dy * Math.sin(angle);
         const ctxY = (dx: number, dy: number) => y + dx * Math.sin(angle) + dy * Math.cos(angle);
 
-        // Arrow Triangle（等腰三角形：尖头更长，底边更窄，方向更明显）
+        // 箭头三角形
         g.beginPath();
-        g.moveTo(ctxX(0, -headSize * 1.5), ctxY(0, -headSize * 1.5)); // 尖端（更远）
-        g.lineTo(ctxX(-headSize * 0.4, 0), ctxY(-headSize * 0.4, 0)); // 左底（更窄）
-        g.lineTo(ctxX(headSize * 0.4, 0), ctxY(headSize * 0.4, 0));   // 右底（更窄）
+        g.moveTo(ctxX(0, -headSize * 1.5), ctxY(0, -headSize * 1.5));
+        g.lineTo(ctxX(-headSize * 0.4, 0), ctxY(-headSize * 0.4, 0));
+        g.lineTo(ctxX(headSize * 0.4, 0), ctxY(headSize * 0.4, 0));
         g.closePath();
         g.fill({ color: this.worm.color });
         g.stroke({ width: 2, color: 0x000000, alpha: 0.5 });
@@ -102,8 +78,6 @@ export class WormView extends Container {
         if (this.isMoving) return;
         this.isMoving = true;
 
-        // Shake path nodes slightly? Or just whole container?
-        // Whole container is easiest.
         const tl = gsap.timeline({ onComplete: () => { this.isMoving = false; } });
         tl.to(this.graphics, { x: 5, duration: 0.05 })
             .to(this.graphics, { x: -5, duration: 0.05 })
@@ -111,29 +85,85 @@ export class WormView extends Container {
             .to(this.graphics, { x: 0, duration: 0.05 });
     }
 
+    /** 蛇形爬出动效：虫子沿自身身体路径滑出，尾巴经过每一个弯道 */
     playFlyOut(onComplete: () => void) {
         if (this.isMoving) return;
         this.isMoving = true;
 
-        const flyDist = 1000;
-        let dx = 0, dy = 0;
+        const cs = this.cellSize;
+        const cells = this.worm.cells; // cells[0] = 头
+        const n = cells.length;
+
+        // 方向向量
+        let dirX = 0, dirY = 0;
         switch (this.worm.direction) {
-            case Direction.UP: dy = -flyDist; break;
-            case Direction.DOWN: dy = flyDist; break;
-            case Direction.LEFT: dx = -flyDist; break;
-            case Direction.RIGHT: dx = flyDist; break;
+            case Direction.UP: dirY = -1; break;
+            case Direction.DOWN: dirY = 1; break;
+            case Direction.LEFT: dirX = -1; break;
+            case Direction.RIGHT: dirX = 1; break;
         }
 
-        gsap.to(this, {
-            x: this.x + dx,
-            y: this.y + dy,
-            alpha: 0,
-            duration: 0.6,
-            ease: 'back.in(1.2)',
+        // 构建轨道：尾→头→延伸到画面外
+        // rail[0] = 尾巴位置，rail[n-1] = 头部位置，rail[n..] = 延伸
+        const rail: { x: number; y: number }[] = [];
+        for (let i = n - 1; i >= 0; i--) {
+            rail.push({ x: cells[i].x * cs, y: cells[i].y * cs });
+        }
+        const exitSteps = 40; // 延伸足够远
+        const headPos = rail[n - 1];
+        for (let k = 1; k <= exitSteps; k++) {
+            rail.push({
+                x: headPos.x + dirX * cs * k,
+                y: headPos.y + dirY * cs * k
+            });
+        }
+
+        // 每个 cell[i] 在 rail 上的初始位置 = n - 1 - i
+        // 所有 cell 需要前进的总距离 = n - 1 + exitSteps（让尾巴也完全滑出）
+        const totalAdvance = n - 1 + exitSteps;
+        const progress = { value: 0 };
+        const duration = Math.min(1.5, 0.4 + n * 0.06);
+
+        const tl = gsap.timeline({
+            onUpdate: () => {
+                const advance = progress.value * totalAdvance;
+                const points: { x: number; y: number }[] = [];
+
+                for (let i = 0; i < n; i++) {
+                    const railPos = (n - 1 - i) + advance;
+                    // 在 rail 上插值
+                    const idx = Math.min(railPos, rail.length - 1);
+                    const floor = Math.floor(idx);
+                    const frac = idx - floor;
+
+                    if (floor >= rail.length - 1) {
+                        points.push({ ...rail[rail.length - 1] });
+                    } else {
+                        points.push({
+                            x: rail[floor].x + (rail[floor + 1].x - rail[floor].x) * frac,
+                            y: rail[floor].y + (rail[floor + 1].y - rail[floor].y) * frac
+                        });
+                    }
+                }
+
+                this.drawWithPoints(points);
+            },
             onComplete: () => {
                 this.visible = false;
                 onComplete();
             }
         });
+
+        tl.to(progress, {
+            value: 1,
+            duration: duration,
+            ease: 'power1.in'
+        }, 0);
+
+        // 后半段淡出
+        tl.to(this, {
+            alpha: 0,
+            duration: duration * 0.4
+        }, duration * 0.6);
     }
 }
