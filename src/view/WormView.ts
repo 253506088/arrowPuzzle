@@ -128,15 +128,16 @@ export class WormView extends Container {
         g.circle(ctxX(eyeOff - glintOff, pupilFwd - glintOff), ctxY(eyeOff - glintOff, pupilFwd - glintOff), glintR);
         g.fill({ color: 0xFFFFFF, alpha: 0.8 });
 
-        // 方向箭头小三角（在头前方）
-        const arrowDist = headR + size * 0.35;
-        const arrowSize = size * 0.2;
+        // 方向箭头等腰三角（尖头长、底窄，更醒目）
+        const arrowDist = headR + size * 0.25;
+        const arrowLen = size * 0.55;
+        const arrowHalfW = size * 0.18;
         g.beginPath();
-        g.moveTo(ctxX(0, -arrowDist - arrowSize), ctxY(0, -arrowDist - arrowSize));
-        g.lineTo(ctxX(-arrowSize * 0.7, -arrowDist + arrowSize * 0.3), ctxY(-arrowSize * 0.7, -arrowDist + arrowSize * 0.3));
-        g.lineTo(ctxX(arrowSize * 0.7, -arrowDist + arrowSize * 0.3), ctxY(arrowSize * 0.7, -arrowDist + arrowSize * 0.3));
+        g.moveTo(ctxX(0, -arrowDist - arrowLen), ctxY(0, -arrowDist - arrowLen));
+        g.lineTo(ctxX(-arrowHalfW, -arrowDist), ctxY(-arrowHalfW, -arrowDist));
+        g.lineTo(ctxX(arrowHalfW, -arrowDist), ctxY(arrowHalfW, -arrowDist));
         g.closePath();
-        g.fill({ color: 0xFFFFFF, alpha: 0.6 });
+        g.fill({ color: 0xFFFFFF, alpha: 0.85 });
     }
 
     playShake() {
