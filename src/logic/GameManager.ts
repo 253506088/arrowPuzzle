@@ -25,7 +25,7 @@ export class GameManager {
     // 策略："先铺形状，再拓扑分配方向"
     // 分配顺序 = 通关顺序的逆序 → 数学上保证可解
     generateLevel(targetDensity: number = 0.95, minWormCount: number = 0): boolean {
-        const maxRetries = 100;
+        const maxRetries = 10000;
 
         for (let retry = 0; retry < maxRetries; retry++) {
             this.reset();
@@ -106,49 +106,61 @@ export class GameManager {
 
     // 拓扑方向分配：从外向内"剥洋葱"
     // 每次找一条能直达墙壁的虫子，给它分配那个方向，然后"移走"它
-    // 这样后面的虫子就有了新的出路
+    // 优化：每条虫子尝试两个端点当头（翻转），选择空间从4扩大到8
     private assignDirectionsTopologically(): boolean {
         const remaining = new Set(this.logicGrid.worms.keys());
-        const assignments: { id: number; dir: Direction }[] = [];
+        const assignments: { id: number; dir: Direction; reverse: boolean }[] = [];
 
         while (remaining.size > 0) {
             let foundFree = false;
 
             for (const id of remaining) {
                 const worm = this.logicGrid.worms.get(id)!;
+                const originalCells = worm.cells;
 
-                // 尝试4个方向（随机顺序避免偏好）
-                const dirs = [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT];
-                dirs.sort(() => Math.random() - 0.5);
+                // 尝试两个端点当头：原始 + 翻转
+                const orientations: { cells: Point[]; reverse: boolean }[] = [
+                    { cells: originalCells, reverse: false },
+                    { cells: [...originalCells].reverse(), reverse: true }
+                ];
 
-                for (const dir of dirs) {
-                    // 不能撞自己
-                    if (this.checkSelfBlock(worm.cells, dir)) continue;
+                for (const orient of orientations) {
+                    worm.cells = orient.cells;
 
-                    // 检查这个方向是否能直达墙壁（不被remaining里的虫子挡住）
-                    worm.direction = dir;
-                    if (!this.isBlockedBySet(worm, remaining)) {
-                        // 找到了！这条虫子在这个方向是自由的
-                        assignments.push({ id, dir });
-                        remaining.delete(id);
-                        foundFree = true;
-                        break;
+                    const dirs = [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT];
+                    dirs.sort(() => Math.random() - 0.5);
+
+                    for (const dir of dirs) {
+                        if (this.checkSelfBlock(worm.cells, dir)) continue;
+
+                        worm.direction = dir;
+                        if (!this.isBlockedBySet(worm, remaining)) {
+                            assignments.push({ id, dir, reverse: orient.reverse });
+                            remaining.delete(id);
+                            foundFree = true;
+                            break;
+                        }
                     }
+
+                    if (foundFree) break;
                 }
 
-                if (foundFree) break; // 状态变了，重新扫描
+                // 测试后必须还原 cells，应用阶段统一翻转
+                worm.cells = originalCells;
+                if (foundFree) break;
             }
 
             if (!foundFree) {
-                // 剩余虫子全部被卡住，无法继续
                 console.warn(`[方向分配] 失败：剩余 ${remaining.size} 只虫子无出路`);
                 return false;
             }
         }
 
-        // 全部分配成功，应用方向
-        for (const { id, dir } of assignments) {
-            this.logicGrid.worms.get(id)!.direction = dir;
+        // 全部分配成功，应用方向和翻转
+        for (const { id, dir, reverse } of assignments) {
+            const worm = this.logicGrid.worms.get(id)!;
+            if (reverse) worm.cells = [...worm.cells].reverse();
+            worm.direction = dir;
         }
         console.log(`[方向分配] 成功！${assignments.length} 只虫子全部分配方向`);
         return true;
@@ -211,7 +223,8 @@ export class GameManager {
     }
 
     // 射线检测：从 (startX,startY) 沿 dir 方向，返回挡住去路的虫子ID列表
-    getRaycastBlockers(startX: number, startY: number, dir: Direction): number[] {
+    // skipId: 跳过指定ID（用于排除自身）
+    getRaycastBlockers(startX: number, startY: number, dir: Direction, skipId: number = -1): number[] {
         let cx = startX, cy = startY;
         while (true) {
             switch (dir) {
@@ -222,7 +235,7 @@ export class GameManager {
             }
             if (!this.logicGrid.isValid(cx, cy)) break;
             const id = this.logicGrid.getWormIdAt(cx, cy);
-            if (id !== -1) return [id];
+            if (id !== -1 && id !== skipId) return [id];
         }
         return [];
     }
@@ -231,8 +244,8 @@ export class GameManager {
         const worm = this.logicGrid.worms.get(wormId);
         if (!worm) return false;
 
-        // Check clear path
-        const blockers = this.getRaycastBlockers(worm.head.x, worm.head.y, worm.direction);
+        // 检查去路是否畅通（跳过自身body）
+        const blockers = this.getRaycastBlockers(worm.head.x, worm.head.y, worm.direction, wormId);
         if (blockers.length === 0) {
             this.logicGrid.removeWorm(wormId);
             return true;

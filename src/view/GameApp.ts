@@ -118,7 +118,8 @@ export class GameApp {
             const blockers = this.gameManager.getRaycastBlockers(
                 view.worm.head.x,
                 view.worm.head.y,
-                view.worm.direction
+                view.worm.direction,
+                view.worm.id
             );
             console.log(`虫子 ${view.worm.id} 被挡住: [${blockers.join(', ')}]`);
         }
@@ -154,12 +155,25 @@ export class GameApp {
         this.gameContainer.removeChildren();
         this.wormViews.clear();
 
+        // 根据虫子数量动态计算网格大小（保持 5:7 宽高比，最小 25×35）
+        if (minWormCount > 0) {
+            const estimatedCells = minWormCount * 7; // 用长度上限估算
+            const gridArea = Math.ceil(estimatedCells / 0.75); // 留余量
+            const h = Math.max(35, Math.ceil(Math.sqrt(gridArea * 7 / 5)));
+            const w = Math.max(25, Math.ceil(gridArea / h));
+            this.gameManager.gridWidth = w;
+            this.gameManager.gridHeight = h;
+            console.log(`[自适应] 目标 ${minWormCount} 条虫子 → 网格 ${w}×${h} = ${w * h} 格`);
+        }
+
         const success = this.gameManager.generateLevel(0.95, minWormCount);
         if (!success) return false;
 
         this.buildViews();
         this.startTimer();
         this.updateUI();
+        // 触发 resize 适配新网格尺寸
+        window.dispatchEvent(new Event('resize'));
         return true;
     }
 
@@ -229,7 +243,8 @@ export class GameApp {
             const blockers = this.gameManager.getRaycastBlockers(
                 view.worm.head.x,
                 view.worm.head.y,
-                view.worm.direction
+                view.worm.direction,
+                view.worm.id
             );
             console.warn(`虫子 ${view.worm.id} 被挡住:`, blockers);
         }
