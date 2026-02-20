@@ -1,6 +1,7 @@
 import { Application, Container } from 'pixi.js';
 import { GameManager } from '../logic/GameManager';
 import { WormView } from './WormView';
+import { ZoomController } from './ZoomController';
 
 const CELL_SIZE = 25;
 
@@ -9,6 +10,7 @@ export class GameApp {
     gameContainer: Container;
     gameManager: GameManager;
     wormViews: Map<number, WormView> = new Map();
+    private zoomController!: ZoomController;
 
     // 计时器状态
     private timerSeconds = 0;
@@ -41,12 +43,15 @@ export class GameApp {
 
             // 缩放以完整适应屏幕
             const scale = Math.min(availW / logicW, availH / logicH);
-            this.gameContainer.scale.set(scale);
 
             // 居中（考虑缩放后的实际尺寸）
-            this.gameContainer.x = (this.app.screen.width - logicW * scale) / 2 + CELL_SIZE * scale / 2;
-            this.gameContainer.y = uiBarH + (availH - logicH * scale) / 2 + padding + CELL_SIZE * scale / 2;
+            const cx = (this.app.screen.width - logicW * scale) / 2 + CELL_SIZE * scale / 2;
+            const cy = uiBarH + (availH - logicH * scale) / 2 + padding + CELL_SIZE * scale / 2;
+
+            // 通知缩放控制器更新基准值（它会设置 container 的 scale 和位置）
+            this.zoomController.setFitTransform(scale, cx, cy);
         };
+        this.zoomController = new ZoomController(this.gameContainer, this.app.canvas);
         window.addEventListener('resize', resize);
         resize();
 
@@ -63,6 +68,11 @@ export class GameApp {
         // 暂停按钮
         document.getElementById('pauseBtn')?.addEventListener('click', () => {
             this.togglePause();
+        });
+
+        // 重置视图按钮
+        document.getElementById('resetViewBtn')?.addEventListener('click', () => {
+            this.zoomController.resetZoom();
         });
 
         // 导出按钮
