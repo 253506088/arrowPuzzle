@@ -63,9 +63,14 @@ export class GameApp {
         this.bgm.volume = 0.3;
         const startBgm = () => {
             this.bgm?.play().catch(() => { });
-            document.removeEventListener('pointerdown', startBgm);
+            // 成功触发后移除所有监听
+            for (const evt of ['click', 'touchend', 'keydown']) {
+                document.removeEventListener(evt, startBgm);
+            }
         };
-        document.addEventListener('pointerdown', startBgm);
+        for (const evt of ['click', 'touchend', 'keydown']) {
+            document.addEventListener(evt, startBgm, { once: false });
+        }
 
         // 开始按钮
         document.getElementById('startBtn')?.addEventListener('click', () => {
@@ -85,6 +90,11 @@ export class GameApp {
         // 重置视图按钮
         document.getElementById('resetViewBtn')?.addEventListener('click', () => {
             this.zoomController.resetZoom();
+        });
+
+        // 静音按钮
+        document.getElementById('muteBtn')?.addEventListener('click', () => {
+            this.toggleMute();
         });
 
         // 导出按钮
@@ -125,6 +135,7 @@ export class GameApp {
     }
 
     autoDebugStep() {
+        if (this.isPaused) return;
         const allViews = Array.from(this.wormViews.values());
 
         for (const view of allViews) {
@@ -260,6 +271,7 @@ export class GameApp {
     }
 
     handleWormClick(view: WormView) {
+        if (this.isPaused) return;
         if (this.gameManager.tryRemoveWorm(view.worm.id)) {
             this.removeWormView(view);
         } else {
@@ -312,6 +324,13 @@ export class GameApp {
     private updatePauseButton() {
         const btn = document.getElementById('pauseBtn');
         if (btn) btn.innerText = this.isPaused ? '▶ 继续' : '⏸ 暂停';
+    }
+
+    private toggleMute() {
+        if (!this.bgm) return;
+        this.bgm.muted = !this.bgm.muted;
+        const btn = document.getElementById('muteBtn');
+        if (btn) btn.innerText = this.bgm.muted ? '🔇 已静音' : '🔊 静音';
     }
 
     updateUI() {
