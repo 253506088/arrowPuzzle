@@ -16,6 +16,8 @@ export class GameApp {
     private timerSeconds = 0;
     private timerInterval: ReturnType<typeof setInterval> | null = null;
     private isPaused = false;
+    private totalWormCount = 0;
+    private bgm: HTMLAudioElement | null = null;
 
     constructor() {
         this.app = new Application();
@@ -54,6 +56,16 @@ export class GameApp {
         this.zoomController = new ZoomController(this.gameContainer, this.app.canvas);
         window.addEventListener('resize', resize);
         resize();
+
+        // 背景音乐（循环播放，首次交互时启动）
+        this.bgm = new Audio('Pixel_Pounce.mp3');
+        this.bgm.loop = true;
+        this.bgm.volume = 0.3;
+        const startBgm = () => {
+            this.bgm?.play().catch(() => { });
+            document.removeEventListener('pointerdown', startBgm);
+        };
+        document.addEventListener('pointerdown', startBgm);
 
         // 开始按钮
         document.getElementById('startBtn')?.addEventListener('click', () => {
@@ -147,7 +159,7 @@ export class GameApp {
                 const min = Math.floor(this.timerSeconds / 60).toString().padStart(2, '0');
                 const sec = (this.timerSeconds % 60).toString().padStart(2, '0');
                 setTimeout(() => {
-                    alert(`YOU WIN! 用时: ${min}:${sec}`);
+                    alert(`YOU WIN!\n虫子数量: ${this.totalWormCount}\n用时: ${min}:${sec}`);
                     // 显示开始界面，等用户点击
                     const overlay = document.getElementById('startOverlay')!;
                     overlay.style.display = 'flex';
@@ -180,6 +192,7 @@ export class GameApp {
         if (!success) return false;
 
         this.buildViews();
+        this.totalWormCount = this.wormViews.size;
         this.startTimer();
         this.updateUI();
         // 触发 resize 适配新网格尺寸
@@ -231,6 +244,7 @@ export class GameApp {
                 const json = reader.result as string;
                 if (this.gameManager.importLevel(json)) {
                     this.buildViews();
+                    this.totalWormCount = this.wormViews.size;
                     this.startTimer();
                     this.updateUI();
                     document.getElementById('startOverlay')!.style.display = 'none';
