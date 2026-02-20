@@ -27,7 +27,7 @@ export class GameApp {
 
     async init() {
         await this.app.init({
-            background: '#000000',
+            background: '#0f0c29',
             resizeTo: window
         });
         document.body.appendChild(this.app.canvas);
@@ -107,6 +107,12 @@ export class GameApp {
             this.importLevel();
         });
 
+        // 胜利界面「下一关」按钮
+        document.getElementById('nextLevelBtn')?.addEventListener('click', () => {
+            document.getElementById('victoryOverlay')!.style.display = 'none';
+            this.onStartClick();
+        });
+
         // 不自动开始，等用户点击
     }
 
@@ -170,14 +176,10 @@ export class GameApp {
                 const min = Math.floor(this.timerSeconds / 60).toString().padStart(2, '0');
                 const sec = (this.timerSeconds % 60).toString().padStart(2, '0');
                 setTimeout(() => {
-                    alert(`YOU WIN!\n虫子数量: ${this.totalWormCount}\n用时: ${min}:${sec}`);
-                    // 显示开始界面，等用户点击
-                    const overlay = document.getElementById('startOverlay')!;
-                    overlay.style.display = 'flex';
-                    const btn = document.getElementById('startBtn') as HTMLButtonElement;
-                    btn.disabled = false;
-                    btn.innerText = '▶ 下一关';
-                    document.getElementById('statusText')!.innerText = '';
+                    // 显示胜利弹窗
+                    document.getElementById('victoryWorms')!.innerText = String(this.totalWormCount);
+                    document.getElementById('victoryTime')!.innerText = `${min}:${sec}`;
+                    document.getElementById('victoryOverlay')!.style.display = 'flex';
                 }, 500);
             }
         });
@@ -330,11 +332,11 @@ export class GameApp {
         if (!this.bgm) return;
         this.bgm.muted = !this.bgm.muted;
         const btn = document.getElementById('muteBtn');
-        if (btn) btn.innerText = this.bgm.muted ? '🔇 已静音' : '🔊 静音';
+        if (btn) btn.innerText = this.bgm.muted ? '🔇 静音' : '🔊 音乐';
     }
 
     updateUI() {
         const countEl = document.getElementById('countLabel');
-        if (countEl) countEl.innerText = `Worms: ${this.wormViews.size}`;
+        if (countEl) countEl.innerText = `🐛 ${this.wormViews.size}`;
     }
 }

@@ -37,16 +37,44 @@ export class WormView extends Container {
         g.clear();
 
         const cs = this.cellSize;
-        const thickness = cs * 0.6;
+        const thickness = cs * 0.55;
+        const color = this.worm.color;
 
+        // === 外发光层 ===
         g.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) {
             g.lineTo(points[i].x, points[i].y);
         }
+        g.stroke({ width: thickness + 6, color: color, alpha: 0.15, cap: 'round', join: 'round' });
 
-        g.stroke({ width: thickness, color: this.worm.color, cap: 'round', join: 'round' });
-        g.stroke({ width: thickness * 0.4, color: 0xFFFFFF, alpha: 0.4, cap: 'round', join: 'round' });
+        // === 主体 ===
+        g.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+            g.lineTo(points[i].x, points[i].y);
+        }
+        g.stroke({ width: thickness, color: color, cap: 'round', join: 'round' });
 
+        // === 高光（内芯） ===
+        g.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+            g.lineTo(points[i].x, points[i].y);
+        }
+        g.stroke({ width: thickness * 0.3, color: 0xFFFFFF, alpha: 0.35, cap: 'round', join: 'round' });
+
+        // === 关节装饰圆点（跳过头尾） ===
+        for (let i = 1; i < points.length - 1; i++) {
+            g.circle(points[i].x, points[i].y, thickness * 0.12);
+        }
+        if (points.length > 2) {
+            g.fill({ color: 0xFFFFFF, alpha: 0.2 });
+        }
+
+        // === 尾巴圆点 ===
+        const tail = points[points.length - 1];
+        g.circle(tail.x, tail.y, thickness * 0.2);
+        g.fill({ color: color, alpha: 0.6 });
+
+        // === 头部 ===
         this.drawHead(g, points[0].x, points[0].y, this.worm.direction, thickness);
     }
 
@@ -59,19 +87,56 @@ export class WormView extends Container {
             case Direction.RIGHT: angle = Math.PI / 2; break;
         }
 
-        const headSize = size * 1.2;
+        const color = this.worm.color;
+        const headR = size * 0.55;
 
         const ctxX = (dx: number, dy: number) => x + dx * Math.cos(angle) - dy * Math.sin(angle);
         const ctxY = (dx: number, dy: number) => y + dx * Math.sin(angle) + dy * Math.cos(angle);
 
-        // 箭头三角形
+        // 头部圆形（大一圈）
+        g.circle(x, y, headR);
+        g.fill({ color });
+        g.circle(x, y, headR);
+        g.stroke({ width: 1.5, color: 0x000000, alpha: 0.2 });
+
+        // 高光
+        g.circle(ctxX(-headR * 0.15, -headR * 0.2), ctxY(-headR * 0.15, -headR * 0.2), headR * 0.3);
+        g.fill({ color: 0xFFFFFF, alpha: 0.2 });
+
+        // 眼白
+        const eyeOff = headR * 0.32;
+        const eyeR = headR * 0.26;
+        const eyeFwd = -headR * 0.15;
+        g.circle(ctxX(-eyeOff, eyeFwd), ctxY(-eyeOff, eyeFwd), eyeR);
+        g.fill({ color: 0xFFFFFF });
+        g.circle(ctxX(eyeOff, eyeFwd), ctxY(eyeOff, eyeFwd), eyeR);
+        g.fill({ color: 0xFFFFFF });
+
+        // 瞳孔（朝前进方向偏移）
+        const pupilR = eyeR * 0.55;
+        const pupilFwd = eyeFwd - eyeR * 0.2;
+        g.circle(ctxX(-eyeOff, pupilFwd), ctxY(-eyeOff, pupilFwd), pupilR);
+        g.fill({ color: 0x1a1a2e });
+        g.circle(ctxX(eyeOff, pupilFwd), ctxY(eyeOff, pupilFwd), pupilR);
+        g.fill({ color: 0x1a1a2e });
+
+        // 瞳孔高光
+        const glintR = pupilR * 0.4;
+        const glintOff = pupilR * 0.2;
+        g.circle(ctxX(-eyeOff - glintOff, pupilFwd - glintOff), ctxY(-eyeOff - glintOff, pupilFwd - glintOff), glintR);
+        g.fill({ color: 0xFFFFFF, alpha: 0.8 });
+        g.circle(ctxX(eyeOff - glintOff, pupilFwd - glintOff), ctxY(eyeOff - glintOff, pupilFwd - glintOff), glintR);
+        g.fill({ color: 0xFFFFFF, alpha: 0.8 });
+
+        // 方向箭头小三角（在头前方）
+        const arrowDist = headR + size * 0.35;
+        const arrowSize = size * 0.2;
         g.beginPath();
-        g.moveTo(ctxX(0, -headSize * 1.5), ctxY(0, -headSize * 1.5));
-        g.lineTo(ctxX(-headSize * 0.4, 0), ctxY(-headSize * 0.4, 0));
-        g.lineTo(ctxX(headSize * 0.4, 0), ctxY(headSize * 0.4, 0));
+        g.moveTo(ctxX(0, -arrowDist - arrowSize), ctxY(0, -arrowDist - arrowSize));
+        g.lineTo(ctxX(-arrowSize * 0.7, -arrowDist + arrowSize * 0.3), ctxY(-arrowSize * 0.7, -arrowDist + arrowSize * 0.3));
+        g.lineTo(ctxX(arrowSize * 0.7, -arrowDist + arrowSize * 0.3), ctxY(arrowSize * 0.7, -arrowDist + arrowSize * 0.3));
         g.closePath();
-        g.fill({ color: this.worm.color });
-        g.stroke({ width: 2, color: 0x000000, alpha: 0.5 });
+        g.fill({ color: 0xFFFFFF, alpha: 0.6 });
     }
 
     playShake() {
